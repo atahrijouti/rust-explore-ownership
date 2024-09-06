@@ -4,13 +4,13 @@ struct Canvas {
 
 impl Canvas {
     pub fn draw_line(&mut self) {
-        self.add_to_log("Wrote a fancy line")
+        self.add_to_log("Wrote a fancy line");
     }
     pub fn draw_rect(&mut self) {
-        self.add_to_log("Wrote a fancy rectangle")
+        self.add_to_log("Wrote a fancy rectangle");
     }
     fn add_to_log(&mut self, entry: &str) {
-        self.log.push_str(&format!("\n{entry}"));
+        self.log.push_str(&format!(".\n{entry}"));
     }
 }
 
@@ -18,13 +18,7 @@ trait Screen {
     fn paint(&mut self, canvas: &mut Canvas);
 }
 
-struct MenuScreen {}
-
-impl MenuScreen {
-    fn new() -> MenuScreen {
-        MenuScreen {}
-    }
-}
+struct MenuScreen;
 
 impl Screen for MenuScreen {
     fn paint(&mut self, canvas: &mut Canvas) {
@@ -32,13 +26,7 @@ impl Screen for MenuScreen {
     }
 }
 
-struct GameScreen {}
-
-impl GameScreen {
-    fn new() -> GameScreen {
-        GameScreen {}
-    }
-}
+struct GameScreen;
 
 impl Screen for GameScreen {
     fn paint(&mut self, canvas: &mut Canvas) {
@@ -52,27 +40,35 @@ pub enum ScreenName {
 }
 
 struct Manager<'m> {
-    screen: Box<dyn Screen + 'm>,
+    screen: ScreenType,
     canvas: &'m mut Canvas,
 }
 
+enum ScreenType {
+    Menu(MenuScreen),
+    Game(GameScreen),
+}
+
 impl<'m> Manager<'m> {
-    fn new(canvas: &'m mut Canvas) -> Manager<'m> {
-        Manager {
-            screen: Box::new(MenuScreen {}),
+    fn new(canvas: &'m mut Canvas) -> Self {
+        Self {
+            screen: ScreenType::Menu(MenuScreen),
             canvas,
         }
     }
 
     fn paint(&mut self) {
-        self.screen.paint(self.canvas)
+        match &mut self.screen {
+            ScreenType::Menu(screen) => screen.paint(self.canvas),
+            ScreenType::Game(screen) => screen.paint(self.canvas),
+        }
     }
 
     fn swap_screen(&mut self, screen: ScreenName) {
-        match screen {
-            ScreenName::Menu => self.screen = Box::new(MenuScreen::new()),
-            ScreenName::Game => self.screen = Box::new(GameScreen::new()),
-        }
+        self.screen = match screen {
+            ScreenName::Menu => ScreenType::Menu(MenuScreen),
+            ScreenName::Game => ScreenType::Game(GameScreen),
+        };
     }
 
     fn present(&self) -> &String {
@@ -92,8 +88,7 @@ fn main() {
 
     println!("{}", manager.present());
 
-    // Expected messages
-
+    // Expected messages:
     // Starting Point.
     // Wrote a fancy rectangle.
     // Wrote a fancy line
