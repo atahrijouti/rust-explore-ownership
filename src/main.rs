@@ -81,7 +81,7 @@ impl Painter for GamePainter {
 trait Screen {
     fn update(&mut self) -> ScreenEvent;
     fn paint(&mut self);
-    fn get_canvas(&mut self) -> &Canvas;
+    fn get_canvas(&mut self) -> &mut Canvas;
 }
 
 // MenuScreen uses MenuPainter and raises events based on its logic
@@ -113,8 +113,8 @@ impl Screen for MenuScreen {
         self.painter.draw_option(self.selected_option);
     }
 
-    fn get_canvas(&mut self) -> &Canvas {
-        &self.painter.canvas
+    fn get_canvas(&mut self) -> &mut Canvas {
+        &mut self.painter.canvas
     }
 }
 
@@ -147,8 +147,8 @@ impl Screen for GameScreen {
         self.painter.draw_player(self.player_x);
     }
 
-    fn get_canvas(&mut self) -> &Canvas {
-        &self.painter.canvas
+    fn get_canvas(&mut self) -> &mut Canvas {
+        &mut self.painter.canvas
     }
 }
 
@@ -187,7 +187,9 @@ impl Game {
     }
 
     fn paint(&mut self) {
-        self.canvas.clear(); // Clear the main canvas before each frame
+        self.canvas.clear();
+        self.current_screen.get_canvas().clear();
+
         self.current_screen.paint();
 
         let screen_canvas = self.current_screen.get_canvas();
