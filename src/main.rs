@@ -102,7 +102,7 @@ impl MenuScreen {
 impl Screen for MenuScreen {
     fn update(&mut self) -> ScreenEvent {
         self.selected_option += 1;
-        if self.selected_option >= 4 {
+        if self.selected_option >= 3 {
             return ScreenEvent::SwitchToGame;
         }
         ScreenEvent::None
@@ -135,8 +135,8 @@ impl GameScreen {
 
 impl Screen for GameScreen {
     fn update(&mut self) -> ScreenEvent {
-        self.player_x += 5;
-        if self.player_x > 100 {
+        self.player_x += 10;
+        if self.player_x > 50 {
             return ScreenEvent::SwitchToMenu;
         }
         ScreenEvent::None
@@ -208,7 +208,7 @@ fn main() {
     let mut game = Game::new();
 
     // Game loop (simplified)
-    for _ in 0..10 {
+    for _ in 0..20 {
         game.update();
         game.paint();
         game.render_canvas();
