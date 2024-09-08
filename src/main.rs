@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 // Central canvas for collecting drawing instructions
 struct Canvas {
     buffer: Vec<String>,
@@ -29,59 +26,62 @@ impl Canvas {
 
 // Trait for common painter methods
 trait Painter {
-    fn draw_title(&self);
+    fn draw_title(&mut self);
 }
 
 // MenuPainter handles drawing for the menu screen
 struct MenuPainter {
-    canvas: Rc<RefCell<Canvas>>,
+    canvas: Canvas,
 }
 
 impl MenuPainter {
-    fn new(canvas: Rc<RefCell<Canvas>>) -> Self {
-        Self { canvas }
+    fn new() -> Self {
+        Self {
+            canvas: Canvas::new(),
+        }
     }
 
-    fn draw_option(&self, option: u32) {
+    fn draw_option(&mut self, option: u32) {
         self.canvas
-            .borrow_mut()
             .add_string(&format!("Drawing menu option: {}", option));
     }
 }
 
 impl Painter for MenuPainter {
-    fn draw_title(&self) {
-        self.canvas.borrow_mut().add_string("Drawing Menu Title");
+    fn draw_title(&mut self) {
+        self.canvas.add_string("Drawing Menu Title");
     }
 }
 
 // GamePainter handles drawing for the game screen
 struct GamePainter {
-    canvas: Rc<RefCell<Canvas>>,
+    canvas: Canvas,
 }
 
 impl GamePainter {
-    fn new(canvas: Rc<RefCell<Canvas>>) -> Self {
-        Self { canvas }
+    fn new() -> Self {
+        Self {
+            canvas: Canvas::new(),
+        }
     }
 
-    fn draw_player(&self, player_x: u32) {
+    fn draw_player(&mut self, player_x: u32) {
         self.canvas
-            .borrow_mut()
             .add_string(&format!("Drawing player at position: {}", player_x));
     }
 }
 
 impl Painter for GamePainter {
-    fn draw_title(&self) {
-        self.canvas.borrow_mut().add_string("Drawing Game Title");
+    fn draw_title(&mut self) {
+        self.canvas.add_string("Drawing Game Title");
     }
 }
 
 // Trait for screens, which must implement update and paint
 trait Screen {
     fn update(&mut self) -> ScreenEvent;
-    fn paint(&self);
+    fn paint(&mut self);
+    fn get_canvas(&mut self) -> &Canvas;
 }
 
 // MenuScreen uses MenuPainter and raises events based on its logic
@@ -91,10 +91,10 @@ struct MenuScreen {
 }
 
 impl MenuScreen {
-    fn new(canvas: Rc<RefCell<Canvas>>) -> Self {
+    fn new() -> Self {
         MenuScreen {
             selected_option: 0,
-            painter: MenuPainter::new(canvas),
+            painter: MenuPainter::new(),
         }
     }
 }
@@ -108,9 +108,13 @@ impl Screen for MenuScreen {
         ScreenEvent::None
     }
 
-    fn paint(&self) {
+    fn paint(&mut self) {
         self.painter.draw_title();
         self.painter.draw_option(self.selected_option);
+    }
+
+    fn get_canvas(&mut self) -> &Canvas {
+        &self.painter.canvas
     }
 }
 
@@ -121,10 +125,10 @@ struct GameScreen {
 }
 
 impl GameScreen {
-    fn new(canvas: Rc<RefCell<Canvas>>) -> Self {
+    fn new() -> Self {
         GameScreen {
             player_x: 0,
-            painter: GamePainter::new(canvas),
+            painter: GamePainter::new(),
         }
     }
 }
@@ -138,9 +142,13 @@ impl Screen for GameScreen {
         ScreenEvent::None
     }
 
-    fn paint(&self) {
+    fn paint(&mut self) {
         self.painter.draw_title();
         self.painter.draw_player(self.player_x);
+    }
+
+    fn get_canvas(&mut self) -> &Canvas {
+        &self.painter.canvas
     }
 }
 
@@ -153,13 +161,13 @@ enum ScreenEvent {
 // Game manager that handles screen switching based on events
 struct Game {
     current_screen: Box<dyn Screen>,
-    canvas: Rc<RefCell<Canvas>>,
+    canvas: Canvas, // Use a simple Canvas here
 }
 
 impl Game {
     fn new() -> Self {
-        let canvas = Rc::new(RefCell::new(Canvas::new()));
-        let initial_screen = MenuScreen::new(Rc::clone(&canvas));
+        let canvas = Canvas::new();
+        let initial_screen = MenuScreen::new();
         Game {
             current_screen: Box::new(initial_screen),
             canvas,
@@ -169,25 +177,28 @@ impl Game {
     fn update(&mut self) {
         match self.current_screen.update() {
             ScreenEvent::SwitchToGame => {
-                self.current_screen = Box::new(GameScreen::new(Rc::clone(&self.canvas)));
+                self.current_screen = Box::new(GameScreen::new());
             }
             ScreenEvent::SwitchToMenu => {
-                self.current_screen = Box::new(MenuScreen::new(Rc::clone(&self.canvas)));
+                self.current_screen = Box::new(MenuScreen::new());
             }
             ScreenEvent::None => {}
         }
     }
 
-    fn paint(&self) {
+    fn paint(&mut self) {
+        self.canvas.clear(); // Clear the main canvas before each frame
         self.current_screen.paint();
+
+        let screen_canvas = self.current_screen.get_canvas();
+        // Integrate the painter's canvas into the main canvas
+        self.canvas
+            .buffer
+            .extend(screen_canvas.buffer.iter().cloned());
     }
 
     fn render_canvas(&self) {
-        self.canvas.borrow().render();
-    }
-
-    fn clear_canvas(&self) {
-        self.canvas.borrow_mut().clear();
+        self.canvas.render();
     }
 }
 
@@ -199,6 +210,6 @@ fn main() {
         game.update();
         game.paint();
         game.render_canvas();
-        game.clear_canvas();
+        // The canvas is cleared at the beginning of paint
     }
 }
