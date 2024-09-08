@@ -1,95 +1,134 @@
-struct Canvas {
-    log: String,
+enum ScreenEvent {
+    None,
+    SwitchToGame,
+    SwitchToMenu,
 }
 
-impl Canvas {
-    pub fn draw_line(&mut self) {
-        self.add_to_log("Wrote a fancy line");
+trait Painter {
+    fn draw_title(&self);
+}
+
+struct MenuPainter;
+
+impl MenuPainter {
+    fn draw_option(&self, option: u32) {
+        println!("Drawing menu option: {}", option);
     }
-    pub fn draw_rect(&mut self) {
-        self.add_to_log("Wrote a fancy rectangle");
+}
+
+impl Painter for MenuPainter {
+    fn draw_title(&self) {
+        println!("Drawing Menu Title");
     }
-    fn add_to_log(&mut self, entry: &str) {
-        self.log.push_str(&format!(".\n{entry}"));
+}
+
+struct GamePainter;
+
+impl GamePainter {
+    fn draw_player(&self, player_x: u32) {
+        println!("Drawing player at position: {}", player_x);
+    }
+}
+
+impl Painter for GamePainter {
+    fn draw_title(&self) {
+        println!("Drawing Game Title");
     }
 }
 
 trait Screen {
-    fn paint(&mut self, canvas: &mut Canvas);
+    fn update(&mut self) -> ScreenEvent;
+    fn paint(&self);
 }
 
-struct MenuScreen;
+struct MenuScreen {
+    selected_option: u32,
+    painter: MenuPainter,
+}
+
+impl MenuScreen {
+    fn new() -> Self {
+        MenuScreen {
+            selected_option: 0,
+            painter: MenuPainter,
+        }
+    }
+}
 
 impl Screen for MenuScreen {
-    fn paint(&mut self, canvas: &mut Canvas) {
-        canvas.draw_rect();
+    fn update(&mut self) -> ScreenEvent {
+        self.selected_option += 1;
+        if self.selected_option >= 4 {
+            return ScreenEvent::SwitchToGame;
+        }
+        ScreenEvent::None
+    }
+
+    fn paint(&self) {
+        self.painter.draw_title();
+        self.painter.draw_option(self.selected_option);
     }
 }
 
-struct GameScreen;
+struct GameScreen {
+    player_x: u32,
+    painter: GamePainter,
+}
+
+impl GameScreen {
+    fn new() -> Self {
+        GameScreen {
+            player_x: 0,
+            painter: GamePainter,
+        }
+    }
+}
 
 impl Screen for GameScreen {
-    fn paint(&mut self, canvas: &mut Canvas) {
-        canvas.draw_line();
+    fn update(&mut self) -> ScreenEvent {
+        self.player_x += 5;
+        if self.player_x > 100 {
+            return ScreenEvent::SwitchToMenu;
+        }
+        ScreenEvent::None
+    }
+
+    fn paint(&self) {
+        self.painter.draw_title();
+        self.painter.draw_player(self.player_x);
     }
 }
 
-pub enum ScreenName {
-    Menu,
-    Game,
+struct Game {
+    current_screen: Box<dyn Screen>,
 }
 
-struct Manager<'m> {
-    screen: ScreenType,
-    canvas: &'m mut Canvas,
-}
-
-enum ScreenType {
-    Menu(MenuScreen),
-    Game(GameScreen),
-}
-
-impl<'m> Manager<'m> {
-    fn new(canvas: &'m mut Canvas) -> Self {
-        Self {
-            screen: ScreenType::Menu(MenuScreen),
-            canvas,
+impl Game {
+    fn new() -> Self {
+        Game {
+            current_screen: Box::new(MenuScreen::new()),
         }
     }
 
-    fn paint(&mut self) {
-        match &mut self.screen {
-            ScreenType::Menu(screen) => screen.paint(self.canvas),
-            ScreenType::Game(screen) => screen.paint(self.canvas),
+    fn update(&mut self) {
+        match self.current_screen.update() {
+            ScreenEvent::SwitchToGame => self.current_screen = Box::new(GameScreen::new()),
+            ScreenEvent::SwitchToMenu => self.current_screen = Box::new(MenuScreen::new()),
+            ScreenEvent::None => {}
         }
     }
 
-    fn swap_screen(&mut self, screen: ScreenName) {
-        self.screen = match screen {
-            ScreenName::Menu => ScreenType::Menu(MenuScreen),
-            ScreenName::Game => ScreenType::Game(GameScreen),
-        };
-    }
-
-    fn present(&self) -> &String {
-        &self.canvas.log
+    fn paint(&self) {
+        self.current_screen.paint();
     }
 }
 
 fn main() {
-    let mut canvas = Canvas {
-        log: String::from("Starting Point"),
-    };
+    let mut game = Game::new();
 
-    let mut manager = Manager::new(&mut canvas);
-    manager.paint();
-    manager.swap_screen(ScreenName::Game);
-    manager.paint();
-
-    println!("{}", manager.present());
-
-    // Expected messages:
-    // Starting Point.
-    // Wrote a fancy rectangle.
-    // Wrote a fancy line
+    // Game loop (simplified)
+    for _ in 0..6 {
+        game.update();
+        game.paint();
+    }
 }
